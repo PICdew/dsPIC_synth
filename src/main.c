@@ -97,6 +97,7 @@ volatile midi_t prev_midi;
  int tick;
 unsigned char step;
 char arp[]={0,4,7,12};
+char ticks[]={1,2,3,4,6,8,12,16,24,32,48,64,96,128,192};
 
 int oscMix;
  oscillator osc[3];
@@ -148,7 +149,7 @@ int main (void)
         lfoOn=0;
         filtarOn=0;
         note=40;
-        bend=7;
+        bend=16;
         oscMix=127;
         osc[0].waveform=0;
         osc[1].waveform=200;
@@ -169,8 +170,9 @@ int main (void)
 
         if(PORTAbits.RA7!=pClickState[3]){ if(PORTAbits.RA7==0){page++; page%=3; setColour(page);} pClickState[3]=PORTAbits.RA7;}
         if(PORTAbits.RA2!=pClickState[1]){ if(PORTAbits.RA2==0&&page==1){if(arpOn==0){arpOn=1;}else{arpOn=0;}} pClickState[1]=PORTAbits.RA2;}
-        if(PORTAbits.RA3!=pClickState[0]){ if(PORTAbits.RA3==0&&page==1){if(lfoOn==0){lfoOn=1;}else{lfoOn=0;}} pClickState[0]=PORTAbits.RA3;}
+        if(PORTAbits.RA3!=pClickState[0]){ if(PORTAbits.RA3==0&&page==1){if(lfoOn==0){lfoOn=1;}else{lfoOn=0;}} if(PORTAbits.RA3==0&&page==0){bend=0;} pClickState[0]=PORTAbits.RA3;}
         if(PORTAbits.RA4!=pClickState[2]){ if(PORTAbits.RA4==0&&page==1){if(filtarOn==0){filtarOn=1;}else{filtarOn=0;}} pClickState[2]=PORTAbits.RA4;}
+
         switch(page){
             case 0:
                     bend -= read_enc(1);
@@ -189,7 +191,7 @@ int main (void)
                     fRes-=read_enc(3);
                     if(fRes>225){fRes=225;}if(fRes<0){fRes=0;}
                     tick-=read_enc(2);
-                    if(tick>255){tick=255;}if(tick<1){tick=1;}
+                    if(tick>112){tick=112;}if(tick<1){tick=1;}
                     lfoffset-=read_enc(1);
                     if(lfoffset>10){lfoffset=10;}if(lfoffset<-10){lfoffset=-10;}
                     
@@ -250,9 +252,9 @@ inline void parseMidi(){
         rx[rx_pos] = data;
         rx_pos = (rx_pos+1)&(RX_MASK);
         if(rx[0]==0xF8){
-            midiClk++; midiClk%=(tick>>3)+1; if(midiClk==0){step++; step%=3;}
+            midiClk++; midiClk%=ticks[tick>>3]; if(midiClk==0){step++; step%=4; }
         }
-        if(rx[0]==0xFA){midiClk=0;}
+        if(rx[0]==0xFA){midiClk=0; step=0;} //On transport stop, reset clock.
         if(rx_pos==3){
         if(rx[0]==(0x90)){
             if(rx[2]>0){note=rx[1]; noteon();}} //note on
@@ -271,6 +273,8 @@ inline void parseMidi(){
 
 }
 inline void noteon(){
+    step=0;
+    midiClk=0;
     osc[0].phase=0; //Set osc phase to 0 to prevent clipping (maybe?)
     osc[1].phase=0;
 

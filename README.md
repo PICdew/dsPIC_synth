@@ -22,10 +22,12 @@ More wavetables
 Note stack arpeggiate?
 Distortion effect?
 Arpeggiator affect LFO?
+Arpeggiator re-trigger? --Seemed clicky...
 
 Known Issues:
 ==============
 Click on envelope switching
 Arpeggiator isn't quite in sync
 Lots of non-critical compiler errors
+Short attack causes drop in sustain volume
 
