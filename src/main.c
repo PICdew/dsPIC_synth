@@ -27,14 +27,11 @@ typedef struct{
     unsigned int freq;
     unsigned int phaseInc;
     unsigned int phase;
-   // unsigned short amp;
     unsigned short duty;
     fixed value;
 } oscillator;
 unsigned char data;
 unsigned char note;
-char noteStack[]={-1,-1,-1,-1};
-int lfof;
 
 typedef struct{
 	unsigned char status;
@@ -99,7 +96,7 @@ volatile midi_t prev_midi;
  unsigned short filtarOn;
  int tick;
 unsigned char step;
-char arp[]={0,3,7};
+char arp[]={0,4,7,12};
 
 int oscMix;
  oscillator osc[3];
@@ -167,7 +164,7 @@ int main (void)
 
     while (1)      // Loop
     {
-        //if(sampBuff->unread<512){calcSample();}
+        
         if(midiBuff->unread>0){parseMidi();}
 
         if(PORTAbits.RA7!=pClickState[3]){ if(PORTAbits.RA7==0){page++; page%=3; setColour(page);} pClickState[3]=PORTAbits.RA7;}
@@ -177,8 +174,8 @@ int main (void)
         switch(page){
             case 0:
                     bend -= read_enc(1);
-                    if((bend+note)>127){bend--;}
-                    if((bend+note)<0){bend++;}
+                    if(((bend>>2)+note)>127){bend--;}
+                    if(((bend>>2)+note)<0){bend++;}
                     oscMix += read_enc(2);
                     if(oscMix>255){oscMix=255;} if(oscMix<0){oscMix=0;}
 
@@ -186,7 +183,7 @@ int main (void)
                     osc[1].waveform+=read_enc(3);
                     break;
             case 1:
-                    //fMix+=read_enc(4);
+                    
                     fCut-=read_enc(4);
                     if(fCut>255){fCut=255;}if(fCut<0){fCut=0;}
                     fRes-=read_enc(3);
@@ -195,7 +192,7 @@ int main (void)
                     if(tick>255){tick=255;}if(tick<1){tick=1;}
                     lfoffset-=read_enc(1);
                     if(lfoffset>10){lfoffset=10;}if(lfoffset<-10){lfoffset=-10;}
-                    //fmAmt+=read_enc(1);
+                    
                     break;
             case 2:
                 tmpAttack+=read_enc(4); if(tmpAttack<=5){tmpAttack=5;}if(tmpAttack>255){tmpAttack=255;}
@@ -210,28 +207,21 @@ int main (void)
       if(filtarOn==0){setFltCut(0,(fCut/255.0));} else{setFltCut(0,(adsr->gain/127.0));}
         setFltRes(0,(fRes/255.0));
         
-     //   LATAbits.LATA8=PORTAbits.RA3;
-     //   LATAbits.LATA10=!PORTAbits.RA3;
 
-       // osc[0].freq=mtof[note+arp[step]]+(osc[2].value); //Set oscs to freq
-      //  osc[1].freq=mtof[note+bend+arp[step]]+(osc[2].value);
         if(arpOn==1){
         osc[0].freq=mtof[note+arp[step]]; //Set oscs to freq
-        osc[1].freq=mtof[note+bend+arp[step]];
-        osc[2].freq=mtolfo[note+arp[step]];
+        osc[1].freq=mtof[note+(bend>>2)+arp[step]];
+        osc[2].freq=mtof[note+arp[step]];  //PREVIOUSLY MTOLFO[note]
         }else{
         osc[0].freq=mtof[note]; //Set oscs to freq
-        osc[1].freq=mtof[note+bend];
-        osc[2].freq=mtolfo[note];
+        osc[1].freq=mtof[note+(bend>>2)];
+        osc[2].freq=mtof[note]; //PREVIOUSLY MTOLFO[note]
         }
 
         if(lfoOn==1){
-        osc[1].freq+=(fp_mul(osc[2].value,(mtolfo[note]+lfoffset)));
-        osc[0].freq+=(fp_mul(osc[2].value,(mtolfo[note]+lfoffset)));
+        osc[1].freq+=(fp_mul(osc[2].value,(mtof[note]+lfoffset)));
+        osc[0].freq+=(fp_mul(osc[2].value,(mtof[note]+lfoffset)));
         }
-
-      //  osc[0].freq=mtof[note]; //Set oscs to freq
-      //  osc[1].freq=mtof[note+bend];
 
         osc[0].phaseInc=phaseinc(osc[0].freq);
         osc[1].phaseInc=phaseinc(osc[1].freq);
@@ -242,24 +232,19 @@ int main (void)
 
 }
 
-void __attribute__((interrupt, no_auto_psv)) _DAC1RInterrupt(void)
-{
+void __attribute__((interrupt, no_auto_psv)) _DAC1RInterrupt(void){
      IFS4bits.DAC1RIF = 0;// Clear Right Channel Interrupt Flag
      calcSample();
 
-     // if(sampBuff->unread>0){
-    // DAC1RDAT=sampBuffRead(sampBuff);
-     //}
      
 }
-
 void __attribute__((interrupt, auto_psv)) _U1RXInterrupt(void){       
 	IFS0bits.U1RXIF = 0; // clear RX interrupt flag
         buffWrite(midiBuff,U1RXREG);
-       // parseMidi();
+ 
 
 }
-void parseMidi(){
+inline void parseMidi(){
         data=buffRead(midiBuff);
         if (data&0x80) rx_pos = 0;  //If data is MIDI status, set it as first byte.
         rx[rx_pos] = data;
@@ -275,7 +260,7 @@ void parseMidi(){
         if(rx[0]==(0x80)){note=rx[1]; noteoff();}
         if(rx[0]==(0xB0)){
             switch(rx[1]){
-                case 1: lfof=rx[2]; break;
+               // case 1: lfof=rx[2]; break;
                 //case 2: setFltCut(0,(rx[2]/127.0)); break;
                 //case 3: setFltRes(0,(rx[2]/127.0)); break;
             }
@@ -285,7 +270,7 @@ void parseMidi(){
 
 
 }
-void noteon(){
+inline void noteon(){
     osc[0].phase=0; //Set osc phase to 0 to prevent clipping (maybe?)
     osc[1].phase=0;
 
@@ -298,13 +283,13 @@ void noteon(){
 
 
 }
-void noteoff(){
+inline void noteoff(){
 
             adsr->release=tmpRelease;
             adsr->time = (adsr->attack+1);
 
 }
-void calcAdsr(adsr_t* adsr){
+inline void calcAdsr(adsr_t* adsr){
 
 	long temp = adsr->attack;
 	if (adsr->time < temp){		//Attack
@@ -330,15 +315,15 @@ void calcAdsr(adsr_t* adsr){
 		return;
 	}
 }
-void buffWrite(buffer* buffer, char value){
+inline void buffWrite(buffer* buffer, char value){
     buffer->buff[(buffer->write_index++)&127]=value;
     buffer->unread++;
 }
-void sampBuffWrite(sample_buffer* buffer, fixed value){
+inline void sampBuffWrite(sample_buffer* buffer, fixed value){
     buffer->buff[(buffer->write_index++)&511]=value;
     buffer->unread++;
 }
-int buffRead(buffer* buffer){
+inline int buffRead(buffer* buffer){
     buffer->unread--;
     int result=buffer->buff[(buffer->read_index)&127];
     buffer->read_index++;
@@ -346,13 +331,13 @@ int buffRead(buffer* buffer){
     
     
 }
-int sampBuffRead(sample_buffer* buffer){
+inline int sampBuffRead(sample_buffer* buffer){
     buffer->unread--;
     fixed result=buffer->buff[(buffer->read_index)&511];
     buffer->read_index++;
     return result;
 }
-void calcSample(){
+inline void calcSample(){
 
      output=osc[0].value+osc[1].value;
      if(filtarOn==0){output=fp_mul(output,(adsr->gain));}else{output=fp_mul(output,127);}
@@ -376,5 +361,3 @@ void calcSample(){
     osc[1].value=fp_mul(osc[1].value,255-oscMix);
 
 }
-
-

@@ -55,7 +55,7 @@ void setFltMix(int f, float mix){
 }
 
 
-unsigned int filt(int f, fixed samp){
+inline unsigned int filt(int f, fixed samp){
     fltr[f].smpl = samp;
     fltr[f].smpl >>=4; //4
     fltr[f].smpl -= 0x800; //0x800

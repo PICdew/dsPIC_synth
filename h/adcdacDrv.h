@@ -8,6 +8,7 @@
 
 // Functions
 void initPic(void);
+void initDMA(void);
 void initDac(void);
 unsigned long phaseinc(float freq);
 void digiWrite(int pin, int value);

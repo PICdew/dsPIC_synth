@@ -24,6 +24,10 @@ void initPic(void){
 	while(OSCCONbits.LOCK!=1) {};                           // Wait for PLL to lock
 }
 
+void initDMA(void){
+
+}
+
 void initDac(void){
 	/* Initiate DAC Clock */
 	ACLKCONbits.SELACLK = 0;		// FRC w/ Pll as Clock Source
